@@ -1,4 +1,4 @@
-# What Chrome 152's two critical flaws mean for confirming browser patch coverage
+# Patched on paper, exposed in practice: what Chrome 152's critical bugs mean for your fleet's real risk.
 
 *Chrome 152 fixes 26 externally reported vulnerabilities, including two critical bugs that could lead to remote code execution. Here is how to confirm the update reached every device instead of just trusting auto-update.*
 
