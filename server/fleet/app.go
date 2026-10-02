@@ -903,6 +903,24 @@ func (s *MacOSSettings) FromMap(m map[string]interface{}) (map[string]bool, erro
 		return ret
 	}
 
+	// unlike a bad label, a wrong type here is an error: dropping it would
+	// clear the stored name or description
+	extractStringField := func(parentMap map[string]any, fieldName string) (string, error) {
+		v, ok := parentMap[fieldName]
+		if !ok || v == nil {
+			return "", nil
+		}
+		str, ok := v.(string)
+		if !ok {
+			return "", &json.UnmarshalTypeError{
+				Value: fmt.Sprintf("%T", v),
+				Type:  reflect.TypeFor[string](),
+				Field: "macos_settings.custom_settings." + fieldName,
+			}
+		}
+		return str, nil
+	}
+
 	if v, ok := m["custom_settings"]; ok {
 		set["custom_settings"] = true
 
@@ -915,6 +933,13 @@ func (s *MacOSSettings) FromMap(m map[string]interface{}) (map[string]bool, erro
 					// extract the Path field
 					if path, ok := m["path"].(string); ok {
 						spec.Path = path
+					}
+					var err error
+					if spec.Name, err = extractStringField(m, "name"); err != nil {
+						return nil, err
+					}
+					if spec.Description, err = extractStringField(m, "description"); err != nil {
+						return nil, err
 					}
 
 					spec.Labels = extractLabelField(m, "labels")
@@ -1818,6 +1843,17 @@ func (f *ServerSettings) GetQueryReportCap() int {
 	return f.QueryReportCap
 }
 
+// GetEffectiveQueryReportCap returns the report cap raised to the given host
+// count when that is higher. Results are stored per host, so this lets a report
+// that returns one row per host cover the whole fleet while bounding the worst
+// case to one row per host.
+func (f *ServerSettings) GetEffectiveQueryReportCap(hostCount int) int {
+	if reportCap := f.GetQueryReportCap(); hostCount <= reportCap {
+		return reportCap
+	}
+	return hostCount
+}
+
 // HostExpirySettings contains settings pertaining to automatic host expiry.
 type HostExpirySettings struct {
 	HostExpiryEnabled bool `json:"host_expiry_enabled"`
@@ -2309,6 +2345,16 @@ const (
 // Partnerships contains specialized configuration options for Fleet partners.
 type Partnerships struct {
 	EnablePrimo bool `json:"enable_primo,omitempty"`
+}
+
+// AuthSettings exposes the read-only authentication settings that come from
+// the server configuration and that the UI adapts to.
+type AuthSettings struct {
+	// MDMAppleOneTimeEnrollSecrets mirrors the mdm.apple_one_time_enroll_secrets
+	// server configuration.
+	MDMAppleOneTimeEnrollSecrets bool `json:"mdm_apple_one_time_enroll_secrets,omitempty"`
+	// MDMWindowsOneTimeEnrollSecrets mirrors the mdm.windows_one_time_enroll_secrets server configuration.
+	MDMWindowsOneTimeEnrollSecrets bool `json:"mdm_windows_one_time_enroll_secrets,omitempty"`
 }
 
 // LicenseInfo contains information about the Fleet license.
