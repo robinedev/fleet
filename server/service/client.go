@@ -466,6 +466,15 @@ func getProfilesContents(baseDir string, macProfiles, windowsProfiles, androidPr
 				}
 			}
 
+			// an explicit name replaces the derived one, for every type; the
+			// server stores it trimmed, so match that here
+			if profile.Name != "" {
+				name = strings.TrimSpace(profile.Name)
+				if name == "" {
+					return nil, fmt.Errorf("%s: %s", prefixErrMsg, "Profile name can't be empty.")
+				}
+			}
+
 			// check for duplicate names across all profiles
 			if _, isDuplicate := extByName[name]; isDuplicate {
 				return nil, errors.New(fmtDuplicateNameErrMsg(name))
@@ -486,6 +495,7 @@ func getProfilesContents(baseDir string, macProfiles, windowsProfiles, androidPr
 
 			result = append(result, fleet.MDMProfileBatchPayload{
 				Name:             name,
+				Description:      profile.Description,
 				Contents:         fileContents,
 				Labels:           profile.Labels,
 				LabelsIncludeAll: profile.LabelsIncludeAll,
@@ -1692,6 +1702,12 @@ func legacyExtractAppCfgCustomSettings(mmdm map[string]interface{}, platformKey 
 			if path, ok := m["path"].(string); ok {
 				profSpec.Path = path
 			}
+			if name, ok := m["name"].(string); ok {
+				profSpec.Name = name
+			}
+			if description, ok := m["description"].(string); ok {
+				profSpec.Description = description
+			}
 
 			// at this stage we extract and return all supported label fields, the
 			// validations are done later on in the Fleet API endpoint.
@@ -2384,6 +2400,15 @@ func (c *Client) DoGitOps(
 		}
 		if conditionalAccessEnabled, ok := integrations.(map[string]interface{})["conditional_access_enabled"]; !ok || conditionalAccessEnabled == nil {
 			integrations.(map[string]interface{})["conditional_access_enabled"] = false
+		}
+		if idpURLs, ok := integrations.(map[string]any)["certificates_idp_introspection_urls"]; !ok || idpURLs == nil {
+			integrations.(map[string]any)["certificates_idp_introspection_urls"] = []any{}
+		}
+		if idpClientIDs, ok := integrations.(map[string]any)["certificates_idp_client_ids"]; !ok || idpClientIDs == nil {
+			integrations.(map[string]any)["certificates_idp_client_ids"] = []any{}
+		}
+		if requireHostEndUserBinding, ok := integrations.(map[string]any)["certificates_disable_host_end_user_binding"]; !ok || requireHostEndUserBinding == nil {
+			integrations.(map[string]any)["certificates_disable_host_end_user_binding"] = false
 		}
 		// ensure that legacy certificate authorities are not set in integrations
 		if _, ok := integrations.(map[string]interface{})["ndes_scep_proxy"]; ok {
